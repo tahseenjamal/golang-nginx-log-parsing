@@ -27,6 +27,7 @@ func main() {
 
 		//print the value of uri parameter that was passed as second command line argument
 		fmt.Println(infile.urlparsefunc(uriparameter))
+		fmt.Println(infile.datetime_stamp)
 
 	}
 }

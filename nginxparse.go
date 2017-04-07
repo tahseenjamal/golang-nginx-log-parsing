@@ -4,19 +4,16 @@ import (
 	"bufio"
 	"net/url"
 	"os"
-	"strings"
+	"regexp"
+	"time"
 )
 
 //nginx data fields as per the Split Function created by me
 
 type datagram struct {
 	ipaddress string
-	datestamp string
 
-	hour     string
-	minute   string
-	second   string
-	timezone string
+	datetime_stamp time.Time
 
 	reqeuststype string
 	requesturi   string
@@ -43,21 +40,33 @@ func (instream *streamdata) openstream(filename string) {
 
 }
 
-//This function is used by strings->FieldFunc to identify multiple delimiters, to split the line basis that
-func (instream *streamdata) Split(r rune) bool {
-
-	return r == '[' || r == ']' || r == ' ' || r == ':'
-
-}
-
 //Here lines are read and mapped to datagram struct
 func (instream *streamdata) parsestream() bool {
 
 	if instream.scanner.Scan() {
 
-		data := strings.FieldsFunc(instream.scanner.Text(), instream.Split)
+		logLine := instream.scanner.Text()
 
-		instream.datagram = datagram{data[0], data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11]}
+		ipaddress_reg := regexp.MustCompile(`([0-9]{1,3}\.){3}[0-9]{1,3}`)
+		ipaddress_data := ipaddress_reg.FindAllString(logLine, -1)[0]
+
+		datetime_reg := regexp.MustCompile(`\[\d{1,2}\/\w{3}\/\d{1,4}(:[0-9]{1,2}){3} \+([0-9]){1,4}\]`)
+		datetime_data := datetime_reg.FindAllString(logLine, -1)[0]
+		parsed_time, _ := time.Parse("[02/Jan/2006:15:04:05 -0700]", datetime_data)
+
+		url_reg := regexp.MustCompile(`"\w+\s[^\s]+`)
+		url_data := url_reg.FindAllString(logLine, -1)[0]
+
+		request_type_re := regexp.MustCompile(`"\w+`)
+		request_data := request_type_re.FindAllString(logLine, -1)[0]
+
+		http_version_reg := regexp.MustCompile(`HTTP\/\d.\d"`)
+		http_version_data := http_version_reg.FindAllString(logLine, -1)[0]
+
+		response_and_byte_reg := regexp.MustCompile(`([0-9]{1,3}) \d+`)
+		response_and_byte_data := response_and_byte_reg.FindAllString(logLine, -1)[0]
+
+		instream.datagram = datagram{ipaddress_data, parsed_time, request_data, url_data, http_version_data, response_and_byte_data}
 
 		//information read so return true
 		return true
